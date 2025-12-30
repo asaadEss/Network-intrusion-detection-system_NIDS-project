@@ -28,13 +28,13 @@ Nous calculons un **Score d'Anomalie** global basé sur la distance euclidienne 
 ### Seuillage (Courbe ROC)
 Le seuil d'alerte optimal a été fixé à **14.25** en utilisant l'**Indice de Youden**, offrant le meilleur compromis mathématique entre détection et fausses alertes.
 
-![Courbe ROC](images/courbe_roc.png)
+![Courbe ROC](courbe_roc.png)
 
 ### Performance (Matrice de Confusion)
 * **Rappel (Recall) : 91%** - Le système est très sensible et détecte la quasi-totalité des activités du botnet.
 * **Précision : 17%** - Le taux de faux positifs est élevé.
 
-![Matrice de Confusion](images/matrice_confusion.png)
+![Matrice de Confusion](matrice_confusion.png)
 
 ## 🔎 Analyse Critique (Forensics)
 Pourquoi la précision est-elle basse ?
