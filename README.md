@@ -1,39 +1,48 @@
-# Détection d'Intrusion Botnet par Analyse Comportementale (Algorithme MINDS)
+# Détection d'Intrusion Réseau (IDS) par Analyse Comportementale
 
-Ce projet implémente un système de détection d'intrusion réseau (NIDS) basé sur l'analyse comportementale (statistique) pour identifier le botnet **Neris** (CTU-13 Dataset). Contrairement aux approches par signature, cet algorithme détecte les anomalies de volume et de fréquence dans les flux NetFlow.
+Ce projet implémente un système de détection d'intrusion (NIDS) basé sur l'analyse statistique des flux réseaux (NetFlows) pour identifier le botnet **Neris**. Contrairement aux approches par signature, cet algorithme (**MINDS**) détecte les anomalies comportementales (volume, fréquence) sans connaître le modèle de l'attaque à l'avance.
 
-## 📌 Résultats Clés
-
-* **Taux de Détection (Rappel) :** 91% (Le botnet est quasi-systématiquement détecté).
-* **Méthode de Seuillage :** Indice de Youden sur courbe ROC.
-* **Performance Globale (AUC) :** 0.85.
-
-## 📊 Visualisations
-
-### 1. Performance du Modèle (Courbe ROC)
-Nous avons utilisé la statistique de Youden pour déterminer le seuil optimal d'anomalie (14.25), offrant le meilleur compromis Sensibilité/Spécificité.
-
-![Courbe ROC](images/courbe_roc_youden.png)
-
-### 2. Matrice de Confusion
-Le modèle montre une excellente capacité à détecter les attaques (Vrais Positifs élevés), mais nécessite un filtrage par liste blanche (Whitelisting) pour réduire les faux positifs causés par les serveurs DNS légitimes.
-
-![Matrice de Confusion](images/matrice_confusion.png)
+## 📌 Contexte et Données
+* **Dataset :** CTU-13 (Scénario 9).
+* **Menace :** Botnet *Neris* (Infecte 10 machines, génère du Spam et du Port Scan).
+* **Données d'entrée :** Fichiers `.binetflow` (Agrégation des paquets en flux unidirectionnels).
 
 ## 🛠️ Méthodologie Technique
 
-L'algorithme **MINDS** calcule 4 dimensions contextuelles pour chaque flux réseau sur une fenêtre glissante :
-1.  **Fan-out :** Nombre de destinations distinctes contactées par une source.
-2.  **Fan-in :** Nombre de sources distinctes contactant une destination.
-3.  **Complexité Port/IP :** Analyse des ratios de trafic sortant/entrant.
+L'approche repose sur la détection d'écarts statistiques par rapport à un trafic "sain" appris durant une phase d'entraînement (40 min).
 
-Le score d'anomalie est calculé via une distance statistique (Z-Score multivarié) par rapport au trafic normal appris lors de la phase d'entraînement.
+### 1. Feature Engineering (Les 4 Dimensions)
+Pour chaque flux, nous calculons 4 métriques contextuelles sur une fenêtre glissante de 5 minutes :
+* **Fan-out (src_count) :** Nombre de destinations contactées par une source (Détecte les Scans/Spams).
+* **Fan-in (dst_count) :** Nombre de sources contactant une destination (Détecte les DDoS).
+* **Complexité (src_dst_port / src_port_dst) :** Analyse des ratios Ports/IP.
 
-## 📂 Structure du Projet
+*Note : Une transformation logarithmique (`np.log1p`) est appliquée pour gérer les échelles exponentielles du trafic réseau.*
 
-* `IDS_Detection_Botnet.ipynb` : Le code complet (Nettoyage, Feature Engineering, Entraînement, Test).
-* `images/` : Graphiques générés lors de l'analyse.
+### 2. Algorithme de Détection
+Nous calculons un **Score d'Anomalie** global basé sur la distance euclidienne pondérée (Z-Score) par rapport à la moyenne et l'écart-type du trafic normal.
+> Si le score dépasse le seuil optimal, le flux est marqué comme attaque.
 
-## DATASET
-Le projet utilise le scénario 9 du dataset CTU-13.
-Source : [Stratosphere IPS](https://www.stratosphereips.org/datasets-ctu13)
+## 📊 Résultats et Évaluation
+
+### Seuillage (Courbe ROC)
+Le seuil d'alerte optimal a été fixé à **14.25** en utilisant l'**Indice de Youden**, offrant le meilleur compromis mathématique entre détection et fausses alertes.
+
+![Courbe ROC](images/courbe_roc.png)
+
+### Performance (Matrice de Confusion)
+* **Rappel (Recall) : 91%** - Le système est très sensible et détecte la quasi-totalité des activités du botnet.
+* **Précision : 17%** - Le taux de faux positifs est élevé.
+
+![Matrice de Confusion](images/matrice_confusion.png)
+
+## 🔎 Analyse Critique (Forensics)
+Pourquoi la précision est-elle basse ?
+L'analyse des Faux Positifs révèle que l'algorithme a classé le trafic du serveur **DNS (147.32.84.138)** comme malveillant.
+* **Raison :** Ce serveur légitime génère un volume énorme de requêtes UDP (Port 53), ce qui entraîne une explosion des compteurs (Fan-out/Fan-in) similaire au comportement du botnet.
+* **Amélioration proposée :** Implémentation d'une **Liste Blanche (Whitelisting)** pour exclure les serveurs d'infrastructure connus (DNS, Proxy) du calcul d'anomalie.
+
+## 💻 Installation / Utilisation
+Le projet est présenté sous forme de Jupyter Notebook.
+1.  Télécharger le dataset [CTU-13 Scénario 9](https://www.stratosphereips.org/datasets-ctu13).
+2.  Lancer `IDS_Detection_Botnet.ipynb` via Jupyter ou Google Colab.
